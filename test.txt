@@ -1,2 +1,3 @@
 Added in main
 Added in branchA - Modified in branch A
+Added in main branch - Modified in branchB
