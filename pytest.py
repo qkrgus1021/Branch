@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import cv2
 import numpy as np
 import os
@@ -45,13 +39,13 @@ def extract_badkeypoints(results):
     pose7 =[]
     pose8 =[]
     #대각선 4사분면
-    pose=(results[0]+0.15,results[1]+0.12,results[2])
+    pose=(results[0]+0.15,results[1]+0.15,results[2])
     #대각선 2사분면
-    pose2=(results[0]-0.15,results[1]-0.12,results[2])
+    pose2=(results[0]-0.15,results[1]-0.15,results[2])
     #대각선 1사분면
-    pose3=(results[0]+0.15,results[1]-0.12,results[2])
+    pose3=(results[0]+0.15,results[1]-0.15,results[2])
     #대각성 3사분면
-    pose4=(results[0]-0.15,results[1]+0.12,results[2])
+    pose4=(results[0]-0.15,results[1]+0.15,results[2])
     #x축
     pose5=(results[0]+0.12,results[1],results[2])
     pose6=(results[0]-0.12,results[1],results[2])
@@ -113,6 +107,9 @@ for action in actions:
             pass
         
 cap = cv2.VideoCapture(0)
+cv2.namedWindow("OpenCV Feed", cv2.WND_PROP_FULLSCREEN)
+cv2.setWindowProperty("OpenCV Feed",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+
 #set mediapipe model
 with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
     #LOOP through sequneces aka videos
@@ -122,7 +119,8 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
                 
             #Read feed
             ret,frame = cap.read()
-
+            
+            
             #make detection
             image , results  = mediapipe_detection(frame,holistic)
             draw_landmarks(image,results)
@@ -131,27 +129,31 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
             if sequence == 0 and frame_num==0:
                 i = [0]
                 cv2.putText(image,"Touch the Screen.",(100,100),cv2.FONT_HERSHEY_SIMPLEX,0.5, (0,0,255), 4, cv2.LINE_AA)
-                cv2.imshow('OpenCV Feed',image)
+                cv2.imshow("OpenCV Feed",image)
+                
+                pygame.mixer.init()
+                pygame.mixer.music.load('start.mp3')
+                pygame.mixer.music.play()
                 # the mousecallback only needs to be set once
-                cv2.setMouseCallback('OpenCV Feed', showBlank, i )
+                cv2.setMouseCallback("OpenCV Feed", showBlank, i )
                 # show the initial image for the first time.
                 while i[0] < 1:    
-                    cv2.waitKey(10)
+                    cv2.waitKey(100)
                     cv2.putText(image,"Touch the Screen.",(100,100),cv2.FONT_HERSHEY_SIMPLEX,0.5, (0,0,255), 4, cv2.LINE_AA)
-                    cv2.imshow('OpenCV Feed',image)
+                    cv2.imshow("OpenCV Feed",image)
                     
                 pygame.mixer.init()
                 pygame.mixer.music.load('fixing.mp3')
                 pygame.mixer.music.play()
-            j=[0]
             #사용자의 모습이 보이지 않았을 경우 r키를 입력하여 다시 실행할 수 있게 한다.
             if type(results.pose_landmarks) == type(None):
-                cv2.setMouseCallback('OpenCV Feed', showBlank, j )
                 frame_num=frame_num-1
-                while j[0] < 1:    
-                    cv2.waitKey(10)
+                i=[0]
+                cv2.setMouseCallback("OpenCV Feed", showBlank, i )
+                while i[0] < 1:    
+                    cv2.waitKey(100)
                     cv2.putText(image,"Touch the Screen.",(100,100),cv2.FONT_HERSHEY_SIMPLEX,0.5, (0,0,255), 4, cv2.LINE_AA)
-                    cv2.imshow('OpenCV Feed',image)
+                    cv2.imshow("OpenCV Feed",image)
                 continue
             
             #Apply collection logic
@@ -162,14 +164,14 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
                 cv2.putText(image, 'Collectiong frames for {} Video Number {}'.format(action,sequence), (15,12),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 4, cv2.LINE_AA)
                 #show to screen
-                cv2.imshow('OpenCV Feed',image)
+                cv2.imshow("OpenCV Feed",image)
                 cv2.waitKey(1000)
             else:
                 cv2.putText(image, 'Collectiong frames for {} Video Number {}'.format(action,sequence), (15,12),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 4,cv2.LINE_AA)
                     
-                #show to screen
-                cv2.imshow('OpenCV Feed',image)
+            #show to screen
+            cv2.imshow("OpenCV Feed",image)
                   
             #new export keypoints
             keypoints = extract_keypoints(results)
@@ -196,10 +198,9 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
 cap.release()
 cv2.destroyAllWindows()
 
-
+#build train LSTM
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
-#build train LSTM
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.callbacks import TensorBoard
@@ -240,9 +241,11 @@ model.compile(optimizer='Adam',loss='categorical_crossentropy',metrics=['categor
 #1. 적은 양의 데이터만 사용할 예정이고
 #2. 빠르게 학습시킬 수 있다는 장점과
 #3. 실시간으로 평가를 빠르게 내려줄 수 있기 때문입니다.
-model.fit(X_train,y_train,epochs=500,callbacks=[tb_callback])
+model.fit(X_train,y_train,epochs=150,callbacks=[tb_callback])
 
 model.save('action.h5')
+
+
 
 
 #1 Net detection variables
@@ -255,27 +258,33 @@ bad_pose_count=0
 start =0
 
 cap = cv2.VideoCapture(0)
+cv2.namedWindow("OpenCV Feed", cv2.WND_PROP_FULLSCREEN)
+cv2.setWindowProperty("OpenCV Feed",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+
 #set mediapipe model
 with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
     while cap.isOpened():
         #Read feed
         ret,frame = cap.read()
-
+        
+        if not ret:
+            continue
+            
         #make detection
         image , results  = mediapipe_detection(frame,holistic)
-        
         #draw_landmark
-        draw_landmarks(image,results)
-        j=[0]
         #사용자의 모습이 보이지 않았을 경우 r키를 입력하여 다시 실행할 수 있게 한다.
         if type(results.pose_landmarks) == type(None):
-            cv2.setMouseCallback('OpenCV Feed', showBlank, j )
-            while j[0] < 1:    
-                cv2.waitKey(10)
+            i = [0]
+            cv2.putText(image,"Touch the Screen.",(100,100),cv2.FONT_HERSHEY_SIMPLEX,0.5, (0,0,255), 4, cv2.LINE_AA)
+            cv2.imshow("OpenCV Feed",image)
+            cv2.setMouseCallback('OpenCV Feed', showBlank, i )
+            while i[0] < 1:    
+                cv2.waitKey(100)
                 cv2.putText(image,"Touch the Screen.",(100,100),cv2.FONT_HERSHEY_SIMPLEX,0.5, (0,0,255), 4, cv2.LINE_AA)
-                cv2.imshow('OpenCV Feed',image)
+                cv2.imshow("OpenCV Feed",image)
             continue
-        
+                
         keypoints = extract_keypoints(results)
         sequence.insert(0,keypoints)
         sequence = sequence[:10]
@@ -309,17 +318,15 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
             
             #viz
             image = prob_viz(res,actions,image,colors)
-            #cv2.setMouseCallback(windowName, onMouse, param=None)
             #show to screen
-            cv2.imshow('OpenCV Feed',image)
+            cv2.imshow("OpenCV Feed",image)
+            
         #breaking
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-# In[ ]:
+            
+cap.release()
+cv2.destroyAllWindows()
 
 
 
